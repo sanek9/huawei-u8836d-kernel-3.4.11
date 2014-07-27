@@ -5,15 +5,12 @@ curcfg=".config"
 release="n"
 rebuild="n"
 clean="n"
-makeflags="-w -j8"
+makeflags="-w"
 makedefs="V=0"
 makejobs=${MAKEJOBS}
 curdir=`pwd`
-TOOLCHAIN="./toolchain/arm-cortex_a9-linux-gnueabihf-linaro_4.9.1-2014.05/bin"
-KBUILD_OUTPUT_SUPPORT=yes
-
 if [ "${KBUILD_OUTPUT_SUPPORT}" == "yes" ];then
-  outdir=$curdir/../out
+  outdir=$curdir/out
   mkdir -p $outdir
 fi
 
@@ -98,7 +95,7 @@ fi
 if [ "${rebuild}" == "y" ]; then make_clean; fi
 
 echo "**** Configuring / $defcfg / ****"
- # select correct configuration file
+# select correct configuration file
 if [ "${KBUILD_OUTPUT_SUPPORT}" == "yes" ]; then
   make mediatek-configs O=$outdir
 else
@@ -166,44 +163,48 @@ if [ ! -z $KMOD_PATH ]; then
   exit $?
 fi
 
-echo "**** Building kernel ****"
+echo "**** Building ****"
 make ${makeflags} ${makejobs} ${makedefs}
 
 if [ $? -ne 0 ]; then exit 1; fi
 
+echo "**** Successfully built kernel ****"
+
 mkimg="${MTK_ROOT_BUILD}/tools/mkimage"
 if [ "${KBUILD_OUTPUT_SUPPORT}" == "yes" ]; then
-  kernel_img="arch/arm/boot/Image"
-  kernel_zimg="arch/arm/boot/zImage"
+  kernel_img="${outdir}/arch/arm/boot/Image"
+  kernel_zimg="${outdir}/arch/arm/boot/zImage"
 else
-  kernel_img="arch/arm/boot/Image"
-  kernel_zimg="arch/arm/boot/zImage"
+kernel_img="${curdir}/arch/arm/boot/Image"
+kernel_zimg="${curdir}/arch/arm/boot/zImage"
 fi
+
+echo "**** Generate download images ****"
+
+#if [ ! -x ${mkimg} ]; then chmod a+x ${mkimg}; fi
+
+#if [ "${KBUILD_OUTPUT_SUPPORT}" == "yes" ]; then
+#  ${mkimg} ${kernel_zimg} KERNEL > out/kernel_${MTK_PROJECT}.bin
+#else
+#  ${mkimg} ${kernel_zimg} KERNEL > kernel_${MTK_PROJECT}.bin
+#fi
+
+#copy_to_legacy_download_flash_folder   kernel_${MTK_PROJECT}.bin rootfs_${MTK_PROJECT}.bin
 
 if [ ! -x ${mkimg} ]; then chmod a+x ${mkimg}; fi
 
-${mkimg} ${kernel_zimg} KERNEL > kernelFile
-echo "**** Successfully built kernel ****"
 if [ -d ../build_result ]; then
     rm -rf ../build_result
 fi
-echo "**** Copying kernel to /build_result/kernel/ ****"
-mkdir -p ../build_result/kernel/
-cp kernelFile ../build_result/kernel/kernel
+mkdir -p ../build_result/system/lib/modules/
 
-echo "**** Copying all built modules (.ko) to /build_result/modules/ ****"
-mkdir -p ../build_result/modules/
+if [ "${KBUILD_OUTPUT_SUPPORT}" == "yes" ]; then
+  ${mkimg} ${kernel_zimg} KERNEL > ../build_result/kernel_${MTK_PROJECT}.bin
+  
+else
+  ${mkimg} ${kernel_zimg} KERNEL > ../build_result/kernel_${MTK_PROJECT}.bin
+fi
+
 for file in $(find ../ -name *.ko); do
- cp $file ../build_result/modules/
+ cp $file ../build_result/system/lib/modules/
 done
-
-echo "**** Patching all built modules (.ko) in /build_result/modules/ ****"
-cd ..
-find ./build_result/modules/ -type f -name '*.ko' | xargs -n 1 $TOOLCHAIN/arm-eabi-strip --strip-unneeded
-echo "**** Finnish ****"
-
-echo "**** You can find the new kernelFile in root folder: /build_result/kernel/ ****"
-echo "**** You can find the new modules in root folder: /build_result/modules/ ****"
-echo ""
-echo "**** Rename the kernelFile to zImage and repack with ROM RamDisk ****"
-
