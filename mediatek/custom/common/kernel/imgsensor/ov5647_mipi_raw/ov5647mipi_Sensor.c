@@ -109,6 +109,7 @@
 #include <linux/fs.h>
 #include <asm/atomic.h>
 #include <asm/system.h>
+#include <linux/proc_fs.h>
 
 #include "kd_camera_hw.h"
 #include "kd_imgsensor.h"
@@ -119,7 +120,7 @@
 #include "ov5647mipi_Camera_Sensor_para.h"
 #include "ov5647mipi_CameraCustomized.h"
 
-static MSDK_SCENARIO_ID_ENUM CurrentScenarioId = MSDK_SCENARIO_ID_CAMERA_PREVIEW;
+MSDK_SCENARIO_ID_ENUM CurrentScenarioId = MSDK_SCENARIO_ID_CAMERA_PREVIEW;
 static kal_bool OV5647MIPIAutoFlicKerMode = KAL_FALSE;
 //static kal_bool OV5647MIPIZsdCameraPreview = KAL_FALSE;
 
@@ -203,8 +204,8 @@ static void OV5647MIPI_Write_Shutter(kal_uint16 iShutter)
 		}
 	}
 	
-	if(iShutter > OV5647MIPI_sensor.frame_height)
-		extra_line = iShutter - OV5647MIPI_sensor.frame_height;
+	if(iShutter > (OV5647MIPI_sensor.frame_height-4))
+		extra_line = iShutter - (OV5647MIPI_sensor.frame_height-4);
 
 	// Update Extra shutter
 	OV5647MIPI_write_cmos_sensor(0x350c, (extra_line >> 8) & 0xFF);	
@@ -1016,6 +1017,41 @@ static void OV5647MIPI_Sensor_5M(void)
 	
 }
 
+kal_uint16  iOTPReadData;
+
+void OV5647_OTPRead()
+
+{
+
+   // int iOTPEnableAddr, iOTPEnableAddr1, iOTPStartAddr;
+
+   // iOTPEnableAddr  = 0x3D20;
+
+   // iOTPEnableAddr1 = 0x3D21;
+
+   // iOTPStartAddr   =0x3D05;
+
+    OV5647MIPI_write_cmos_sensor(0x3D20, 0x00);        //OTP Enable Clear
+
+    OV5647MIPI_write_cmos_sensor(0x3D21, 0x01);       //OTP Enable Load
+
+    mdelay(1);
+
+    iOTPReadData = OV5647MIPI_read_cmos_sensor(0x3D06); //Read OTP Data
+
+    mdelay(10);
+
+    OV5647MIPI_write_cmos_sensor(0x3D21, 0x00);       //OTP Enable Clear
+
+
+    if(iOTPReadData==0x00)
+            printk("This is TDK VCM!\n");
+
+    if(iOTPReadData==0x01)
+            printk("This is FOXCONN VCM!\n");
+
+}
+
 /*****************************************************************************/
 /* Windows Mobile Sensor Interface */
 /*****************************************************************************/
@@ -1081,12 +1117,15 @@ UINT32 OV5642GetSensorID(UINT32 *sensorID)
 #ifdef OV5647MIPI_DRIVER_TRACE
 	SENSORDB("OV5647MIPIOpen, sensor_id:%x \n",*sensorID);
 #endif		
-	if (*sensorID != OV5647MIPI_SENSOR_ID) {	
-		        *sensorID = 0xFFFFFFFF; 
-
+	if (*sensorID != OV5647MIPI_SENSOR_ID) {		
 		return ERROR_SENSOR_CONNECT_FAIL;
 	}
-	
+    
+	/* initail sequence write in  */
+	OV5647MIPI_Sensor_Init();
+
+	OV5647_OTPRead();
+    
    return ERROR_NONE;
 }
 
@@ -1169,8 +1208,9 @@ UINT32 OV5647MIPIPreview(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 
 	OV5647MIPI_Set_Dummy(0, dummy_line); /* modify dummy_pixel must gen AE table again */
 	//OV5647MIPI_Write_Shutter(OV5647MIPI_sensor.shutter);
-	mdelay(24);
+	
 	//printk("[soso][OV5647MIPIPreview]shutter=%x,shutter=%d\n",OV5647MIPI_sensor.shutter,OV5647MIPI_sensor.shutter);
+	mdelay(30);
 	return ERROR_NONE;
 }   /*  OV5647MIPIPreview   */
 
@@ -1214,9 +1254,7 @@ UINT32 OV5647MIPIZsdPreview(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 	OV5647MIPI_sensor.line_length = OV5647MIPI_FULL_PERIOD_PIXEL_NUMS;
 	OV5647MIPI_sensor.frame_height = OV5647MIPI_FULL_PERIOD_LINE_NUMS+dummy_line;
 	spin_unlock(&ov5647mipi_drv_lock);
-
-	mdelay(24);
-
+	
 	//OV5647MIPI_Set_Dummy(0, dummy_line); /* modify dummy_pixel must gen AE table again */
 	//OV5647MIPI_Write_Shutter(OV5647MIPI_sensor.shutter);	  
 	return ERROR_NONE;
@@ -1282,7 +1320,7 @@ UINT32 OV5647MIPICapture(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 		printk("OV5647MIPI capture shutter:%x \n",shutter);
 		OV5647MIPI_Write_Shutter(shutter);
 	}
-	mdelay(24);
+	mdelay(30);
 	return ERROR_NONE;
 }   /* OV5647MIPI_Capture() */
 
@@ -1307,7 +1345,7 @@ UINT32 OV5647MIPIGetInfo(MSDK_SCENARIO_ID_ENUM ScenarioId,
 
   switch(ScenarioId)
     {
-        #if defined(MT6575) ||defined(MT6577)
+        #if defined(MT6575)
     	case MSDK_SCENARIO_ID_CAMERA_ZSD:
 			 pSensorInfo->SensorPreviewResolutionX=OV5647MIPI_IMAGE_SENSOR_FULL_WIDTH;
 	         pSensorInfo->SensorPreviewResolutionY=OV5647MIPI_IMAGE_SENSOR_FULL_HEIGHT;
@@ -1373,19 +1411,15 @@ UINT32 OV5647MIPIGetInfo(MSDK_SCENARIO_ID_ENUM ScenarioId,
 	pSensorInfo->SensorISOBinningInfo.ISOBinningInfo[ISO_1600_MODE].BinningEnable=TRUE;
 #endif
 	pSensorInfo->CaptureDelayFrame = 2; 
-	pSensorInfo->PreviewDelayFrame = 4;//zhaoshaopeng  from 2 20120809
+	pSensorInfo->PreviewDelayFrame = 2; 
 	pSensorInfo->VideoDelayFrame = 2; 	
 
 	pSensorInfo->SensorMasterClockSwitch = 0; 
-    pSensorInfo->SensorDrivingCurrent = ISP_DRIVING_8MA;//zhaoshaopeng from ISP_DRIVING_6MA; for ylt
+    pSensorInfo->SensorDrivingCurrent = ISP_DRIVING_6MA;
     pSensorInfo->AEShutDelayFrame = 0;		   /* The frame of setting shutter default 0 for TG int */
 	pSensorInfo->AESensorGainDelayFrame = 0;	   /* The frame of setting sensor gain */
 //	pSensorInfo->AESensorGainDelayFrame = 0;	   /* The frame of setting sensor gain */
 	pSensorInfo->AEISPGainDelayFrame = 2;    
-
-	   	//fenggy add from mtk
-	pSensorInfo->SensorRawType = RAW_TYPE_10BIT;
-	//fenggy end
 	switch (ScenarioId)
 	{
 		case MSDK_SCENARIO_ID_CAMERA_PREVIEW:
@@ -1700,11 +1734,37 @@ SENSOR_FUNCTION_STRUCT	SensorFuncOV5647MIPI=
 	OV5647MIPIClose
 };
 
+static int af_vendor_name_proc_read(char *page, char **start, off_t off,
+				  int count, int *eof, void *data)
+{
+	char *p = page;
+	
+	if (off != 0) {
+		*eof = 1;
+		return 0;
+	}
+
+    if(iOTPReadData==0)
+    	p += sprintf(p, "%s\n", "TDK");
+    else if(iOTPReadData==1)
+        p += sprintf(p, "%s\n", "FOX");
+    else
+        printk("unknow VCM vendor\n");
+
+	return (p - page);
+}
+
+
 UINT32 OV5647MIPISensorInit(PSENSOR_FUNCTION_STRUCT *pfFunc)
 {
+       static kal_uint16 firstEntry = 1;
 	/* To Do : Check Sensor status here */
 	if (pfFunc!=NULL)
 		*pfFunc=&SensorFuncOV5647MIPI;
-
+	if(firstEntry==1)
+	{
+	   create_proc_read_entry("af_vendor", 0644, NULL, af_vendor_name_proc_read, NULL);
+	   firstEntry = 0;
+	}
 	return ERROR_NONE;
 }	/* SensorInit() */

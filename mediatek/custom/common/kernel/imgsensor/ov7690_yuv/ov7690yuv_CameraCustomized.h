@@ -84,7 +84,7 @@
  *
  * Author:
  * -------
- *   ---
+ *   PC Huang (MTK02204)
  *
  *============================================================================
  *             HISTORY
@@ -94,6 +94,48 @@
  * $Modtime:$
  * $Log:$
  *
+ * Feb 9 2010 mtk80461
+ * [DUMA00154355] JPeg Orientation feature check in
+ *
+ *
+ * Oct 27 2009 mtk02204
+ * [DUMA00015869] [Camera Driver] Modifiy camera related drivers for dual/backup sensor/lens drivers.
+ *
+ *
+ * Sep 24 2009 mtk02204
+ * [DUMA00134387] [LTK][GW616][Camera]4040 Camera:Camera Quality Test failed.
+ *
+ *
+ * Jul 8 2009 mtk02204
+ * [DUMA00008051] [Camera Driver] Add drivers for camera high ISO binning mode.
+ *
+ *
+ * Jul 8 2009 mtk02204
+ * [DUMA00008051] [Camera Driver] Add drivers for camera high ISO binning mode.
+ *
+ *
+ * Jul 7 2009 mtk02204
+ * [DUMA00008051] [Camera Driver] Add drivers for camera high ISO binning mode.
+ *
+ *
+ * Jun 6 2009 mtk02204
+ * [DUMA00119628] MTK camera_recorded video only contain audio but no video with Jean effect
+ *
+ *
+ * Apr 10 2009 mtk02204
+ * [DUMA00004178] [Camera] Check in for MTK camera integration
+ *
+ *
+ * Mar 13 2009 mtk02204
+ * [DUMA00001084] First Check in of MT6516 multimedia drivers
+ *
+ *
+ * Mar 2 2009 mtk02204
+ * [DUMA00001084] First Check in of MT6516 multimedia drivers
+ *
+ *
+ * Feb 6 2009 mtk02204
+ * [DUMA00001084] First Check in of MT6516 multimedia drivers
  *
  *
  *------------------------------------------------------------------------------

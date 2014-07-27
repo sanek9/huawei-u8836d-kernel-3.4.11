@@ -126,8 +126,8 @@
 #define OV7690_MAX_FRAMEHEIGHT               0xFFF
 
 /* SENSOR READ/WRITE ID */
-#define OV7690_WRITE_ID                      0x42
-#define OV7690_READ_ID                       0x43
+#define OV7690_WRITE_ID                      0x78//0x42
+#define OV7690_READ_ID                       0x79//0x43
 
 /* FRAME RATE UNIT */
 #define OV7690_FPS(x)                        ((kal_uint32)(10 * (x)))

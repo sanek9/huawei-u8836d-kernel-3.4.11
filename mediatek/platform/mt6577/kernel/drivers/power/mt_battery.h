@@ -22,11 +22,25 @@
 #define MAX_CHARGING_TIME                   24*60*60 	// 24hr
 #define MAX_POSTFULL_SAFETY_TIME       		1*30*60 	// 30mins
 #define MAX_PreCC_CHARGING_TIME         	1*30*60  	// 0.5hr
+#if defined(HQ_CHARGER_FOR_HUAWEI)
+#define MAX_CV_CHARGING_TIME              	2*60*60 	// 2hr
+#define MAX_CV_CHARGING_TIME_LOW_TEMP       7*60*60 	// 7hr
+#define MAX_CV_CHARGING_LOW_TIME			3*30*60     // 1.5hr
+#else
 #define MAX_CV_CHARGING_TIME              	3*60*60 	// 3hr
+#endif
 //#define MAX_CV_CHARGING_TIME              	24*60*60 	// 24hr
 #define MUTEX_TIMEOUT                       5000
+//kaka_11_0611 add for CTA test
+#if defined(MTK_CTA_SUPPORT) || defined(HQ_DUAL_STANDBY_CTA_SUPPORT) //kaka_11_1107 
+#define BAT_TASK_PERIOD                     3 			// 3sec
+#define g_free_bat_temp 					300 		// 300ms
+
+#else
 #define BAT_TASK_PERIOD                     10 			// 10sec
 #define g_free_bat_temp 					1000 		// 1 s
+#endif
+//kaka_11_1010 end
 
 /*****************************************************************************
  *  BATTERY Protection

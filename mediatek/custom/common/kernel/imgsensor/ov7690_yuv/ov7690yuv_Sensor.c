@@ -117,12 +117,6 @@ MSDK_SENSOR_CONFIG_STRUCT OV7690SensorConfigData;
 #define SENSORDB(x,...)
 #endif
 
-
-
-
-
-
-
 #if 0
 extern int iReadReg(u16 a_u2Addr , u8 * a_puBuff , u16 i2cId);
 extern int iWriteReg(u16 a_u2Addr , u32 a_u4Data , u32 a_u4Bytes , u16 i2cId);
@@ -227,7 +221,7 @@ __inline static kal_uint32 OV7690HalfAdjust(kal_uint32 DividEnd, kal_uint32 Divi
 static void OV7690SetMirror(kal_uint8 Mirror)
 {
   kal_uint8 Reg = 0x16;
-  printk("\r\n zhaoshaopeng Mirror =%d \r\n", Mirror);
+
   if (OV7690Sensor.Mirror == Mirror)
   {
     return;
@@ -235,6 +229,8 @@ static void OV7690SetMirror(kal_uint8 Mirror)
   OV7690Sensor.Mirror = Mirror;
   switch (OV7690Sensor.Mirror)
   {
+  case IMAGE_NORMAL:
+    break;
   case IMAGE_H_MIRROR:
     Reg |= 0x40;
     break;
@@ -244,11 +240,6 @@ static void OV7690SetMirror(kal_uint8 Mirror)
   case IMAGE_HV_MIRROR:
     Reg |= 0xC0;
     break;
-    //zhaoshaopeng add for k504 i8
-  case IMAGE_NORMAL:
-    Reg |= 0x00;//0x80;
-    break;
-    //zhaoshaopeng end
   }
   OV7690_write_cmos_sensor(0x0C, Reg);
 }
@@ -423,7 +414,7 @@ static void OV7690AeEnable(kal_bool Enable)
   }
   else
   {
-    OV7690Sensor.Ctrl3A &= 0xFA;//f8
+    OV7690Sensor.Ctrl3A &= 0xF8;
     /* extra line can not be set if not fix frame rate!!! */
     OV7690Sensor.Reg15 &= 0x7F;
   }
@@ -526,14 +517,14 @@ static void OV7690SetDummy(kal_uint16 DummyPixel, kal_uint16 DummyLine)
     BandStep50 = OV7690HalfAdjust(OV7690Sensor.IntClk, LineLength * OV7690_NUM_50HZ * 2);
     BandStep60 = OV7690HalfAdjust(OV7690Sensor.IntClk, LineLength * OV7690_NUM_60HZ * 2);
     
-    OV7690_write_cmos_sensor(0x50, BandStep50); /* 50Hz banding step */
-    OV7690_write_cmos_sensor(0x51, BandStep60); /* 60Hz banding step */
+    OV7690_write_cmos_sensor(0x50, 0x99);//BandStep50); /* 50Hz banding step */
+    OV7690_write_cmos_sensor(0x51, 0x7F);//BandStep60); /* 60Hz banding step */
     
     /* max banding in a frame */
     MaxBand50 = FrameHeight / BandStep50;
     MaxBand60 = FrameHeight / BandStep60;
     OV7690_write_cmos_sensor(0x20, ((MaxBand50&0x10) << 3)|((MaxBand60&0x10) << 2));
-    OV7690_write_cmos_sensor(0x21, ((MaxBand50&0x0F) << 4)|(MaxBand60&0x0F));
+    OV7690_write_cmos_sensor(0x21, 0x23);//((MaxBand50&0x0F) << 4)|(MaxBand60&0x0F));
   }
 }
 
@@ -629,158 +620,168 @@ static void OV7690CalFps(void)
 *************************************************************************/
 static void OV7690InitialSetting(void)
 {
-  OV7690_write_cmos_sensor(0x12, 0x80); /* [7]: software reset */
-  Sleep(5);
-  OV7690_write_cmos_sensor(0x0C, 0x16);//16,56,96,d6
-/*
-  Please update reg0x48 from 40 to 42. Also, please apply the rule for OV7690.
-  If DOVDD = 1.7 - 2.0V, then reg0x49 = 0x0C
-  IF DOVDD = 2.1 - 2.5V, then reg0x49 = 0x04
-  If DOVDD = 2.6 - 3.0V, then reg0x49 = 0x0D
-  
-  That is, for example, if your DOVDD = 2.8v, please insert setting as below.
-  reg0x48 = 0x42
-  reg0x49 = 0x0D
-*/
-  OV7690_write_cmos_sensor(0x48, 0x42); /* 1.75x pre-gain */
-  OV7690_write_cmos_sensor(0x49, 0x0D); /* releated IO voltage */
-  OV7690_write_cmos_sensor(0x41, 0x43);
-  OV7690_write_cmos_sensor(0x81, 0xFF); /* do not disable SDE!!! */
-  OV7690_write_cmos_sensor(0x16, 0x03);
-  OV7690_write_cmos_sensor(0x39, 0x80);
-  
-  /* Clock */ 
-  OV7690_write_cmos_sensor(0x11, 0x00);
-  OV7690_write_cmos_sensor(0x3E, 0x30);
-  
-  /* Isp common */
-  OV7690_write_cmos_sensor(0x13, 0xF7);
-  OV7690_write_cmos_sensor(0x14, 0x21); /* 8x gain ceiling, PPChrg off */
-  OV7690_write_cmos_sensor(0x15, 0x04);
-  OV7690_write_cmos_sensor(0x1E, 0x33);
-  OV7690_write_cmos_sensor(0x0E, 0x03); /* driving capability: 0x00:1x, 0x01:2x, 0x02:3x, 0x03:4x */
-  OV7690_write_cmos_sensor(0xD2, 0x04); /* SDE ctrl */
-  
-  SENSORDB("OV7690Open_start33333 \n");
-  /* Format */
-  OV7690_write_cmos_sensor(0x12, 0x00);
-  OV7690_write_cmos_sensor(0x82, 0x03);
-  OV7690_write_cmos_sensor(0xd0, 0x48);
-  OV7690_write_cmos_sensor(0x80, 0x7f);
-  OV7690_write_cmos_sensor(0x22, 0x00); /* Disable Optical Black Output Selection bit[7] */
-  
-  /* Resolution */
-  OV7690_write_cmos_sensor(0x2A, 0x30); /* linelength */
-  OV7690_write_cmos_sensor(0x2B, 0x4E);
-  OV7690_write_cmos_sensor(0x2C, 0x00); /* dummy line */
-  OV7690_write_cmos_sensor(0x17, OV7690_IMAGE_SENSOR_HSTART); /* H window start line */
-  OV7690_write_cmos_sensor(0x18, (OV7690_IMAGE_SENSOR_HACTIVE + 0x10) >> 2); /* H sensor size */
-  OV7690_write_cmos_sensor(0x19, OV7690_IMAGE_SENSOR_VSTART); /* V window start line */
-  OV7690_write_cmos_sensor(0x1A, (OV7690_IMAGE_SENSOR_VACTIVE + OV7690_IMAGE_SENSOR_VSTART) >> 1); /* V sensor size */
-  OV7690_write_cmos_sensor(0xC8, OV7690_IMAGE_SENSOR_HACTIVE >> 8);
-  OV7690_write_cmos_sensor(0xC9, OV7690_IMAGE_SENSOR_HACTIVE);/* ISP input hsize */
-  OV7690_write_cmos_sensor(0xCA, OV7690_IMAGE_SENSOR_VACTIVE >> 8);
-  OV7690_write_cmos_sensor(0xCB, OV7690_IMAGE_SENSOR_VACTIVE);/* ISP input vsize */
-  OV7690_write_cmos_sensor(0xCC, OV7690_IMAGE_SENSOR_HACTIVE >> 8);
-  OV7690_write_cmos_sensor(0xCD, OV7690_IMAGE_SENSOR_HACTIVE);/* ISP output hsize */
-  OV7690_write_cmos_sensor(0xCE, OV7690_IMAGE_SENSOR_VACTIVE >> 8);
-  OV7690_write_cmos_sensor(0xCF, OV7690_IMAGE_SENSOR_VACTIVE);/* ISP output vsize */
-  
-      /*OV7690_LSC_setting();*/
-            OV7690_write_cmos_sensor(0x80, 0x7f);
-            OV7690_write_cmos_sensor(0x85, 0x90);
-            OV7690_write_cmos_sensor(0x86, 0x00);
-            OV7690_write_cmos_sensor(0x87, 0x5);
-            OV7690_write_cmos_sensor(0x88, 0x2);
-            OV7690_write_cmos_sensor(0x89, 0x41);
-            OV7690_write_cmos_sensor(0x8a, 0x36);
-            OV7690_write_cmos_sensor(0x8b, 0x33);
-  
-  /* Color Matrix */
-            OV7690_write_cmos_sensor(0xBB, 0x7A);
-            OV7690_write_cmos_sensor(0xBC, 0x69);
-            OV7690_write_cmos_sensor(0xBD, 0x11);
-            OV7690_write_cmos_sensor(0xBE, 0x13);
-            OV7690_write_cmos_sensor(0xBF, 0x81);
-            OV7690_write_cmos_sensor(0xC0, 0x96);
-            OV7690_write_cmos_sensor(0xC1, 0x1E);
-  
-  /* Edge + Denoise */
-            OV7690_write_cmos_sensor(0xb4, 0x20);
-            OV7690_write_cmos_sensor(0xB6, 0x08);
-            OV7690_write_cmos_sensor(0xb5, 0x05);
-  OV7690_write_cmos_sensor(0xb8, 0x06);
-            OV7690_write_cmos_sensor(0xb9, 0x02);
-            OV7690_write_cmos_sensor(0xba, 0x08);
-  
-  /* AEC/AGC target */
-  /*This only in fixed frame change!*/
-            OV7690_write_cmos_sensor(0x24, 0x88);
-            OV7690_write_cmos_sensor(0x25, 0x78);
-  OV7690_write_cmos_sensor(0x26, 0xb4);
-  
-  /* UV adjust */
-      OV7690_write_cmos_sensor(0x81, 0xff);
-      OV7690_write_cmos_sensor(0x5A, 0x14);
-      OV7690_write_cmos_sensor(0x5B, 0xa2);
-      OV7690_write_cmos_sensor(0x5C, 0x70);
-      OV7690_write_cmos_sensor(0x5d, 0x20);
-  
-      OV7690_write_cmos_sensor(0x81, 0xff);//21
-      OV7690_write_cmos_sensor(0xd5, 0x20);
-      OV7690_write_cmos_sensor(0xd4, 0x20);
-      OV7690_write_cmos_sensor(0xd3, 0x00);
-      OV7690_write_cmos_sensor(0xdc, 0x00);
-      OV7690_write_cmos_sensor(0xD2, 0x04);
-      OV7690_write_cmos_sensor(0xD8, 0x55);
-      OV7690_write_cmos_sensor(0xD9, 0x55);
-  /* Gamma */
-  OV7690_write_cmos_sensor(0xa3, 0x05);
-  OV7690_write_cmos_sensor(0xa4, 0x10);
-  OV7690_write_cmos_sensor(0xa5, 0x25);
-  OV7690_write_cmos_sensor(0xa6, 0x4f);
-  OV7690_write_cmos_sensor(0xa7, 0x5f);
-  OV7690_write_cmos_sensor(0xa8, 0x6c);
-  OV7690_write_cmos_sensor(0xa9, 0x78);
-  OV7690_write_cmos_sensor(0xaa, 0x82);
-  OV7690_write_cmos_sensor(0xab, 0x8b);
-  OV7690_write_cmos_sensor(0xac, 0x92);
-  OV7690_write_cmos_sensor(0xad, 0x9f);
-  OV7690_write_cmos_sensor(0xae, 0xAc);
-  OV7690_write_cmos_sensor(0xaf, 0xC1);
-  OV7690_write_cmos_sensor(0xb0, 0xD5);
-  OV7690_write_cmos_sensor(0xb1, 0xE7);
-  OV7690_write_cmos_sensor(0xb2, 0x21);
-  
-  /* Advance AWB */
-      OV7690_write_cmos_sensor(0x8c, 0x52);
-  OV7690_write_cmos_sensor(0x8d, 0x11);
-  OV7690_write_cmos_sensor(0x8e, 0x12);
-  OV7690_write_cmos_sensor(0x8f, 0x19);
-  OV7690_write_cmos_sensor(0x90, 0x50);
-  OV7690_write_cmos_sensor(0x91, 0x20);
-      OV7690_write_cmos_sensor(0x92, 0xb1);
-      OV7690_write_cmos_sensor(0x93, 0x9a);
-      OV7690_write_cmos_sensor(0x94, 0x0c);
-      OV7690_write_cmos_sensor(0x95, 0x0c);
-  OV7690_write_cmos_sensor(0x96, 0xf0);
-  OV7690_write_cmos_sensor(0x97, 0x10);
-      OV7690_write_cmos_sensor(0x98, 0x61);
-      OV7690_write_cmos_sensor(0x99, 0x63);
-      OV7690_write_cmos_sensor(0x9a, 0x71);
-      OV7690_write_cmos_sensor(0x9b, 0x78);
-  OV7690_write_cmos_sensor(0x9c, 0xf0);
-  OV7690_write_cmos_sensor(0x9d, 0xf0);
-  OV7690_write_cmos_sensor(0x9e, 0xf0);
-  OV7690_write_cmos_sensor(0x9f, 0xff);
-      OV7690_write_cmos_sensor(0xa0, 0xa8);
-      OV7690_write_cmos_sensor(0xa1, 0xa8);
-      OV7690_write_cmos_sensor(0xa2, 0x0f);
+   //jashe porting 7692 (s)
+   OV7690_write_cmos_sensor(0x12,0x80);
+   msleep(5);
+   OV7690_write_cmos_sensor(0x0C,0x16);
+   OV7690_write_cmos_sensor(0x0E,0x08);
+   OV7690_write_cmos_sensor(0x69,0x52);
+   OV7690_write_cmos_sensor(0x1E,0xB3);
+   OV7690_write_cmos_sensor(0x48,0x42);
+   OV7690_write_cmos_sensor(0xFF,0x01);
+   OV7690_write_cmos_sensor(0xB5,0x30);
+   OV7690_write_cmos_sensor(0xFF,0x00);
+   OV7690_write_cmos_sensor(0x16,0x03);
+   OV7690_write_cmos_sensor(0x62,0x10);
+   OV7690_write_cmos_sensor(0x12,0x00);
+   OV7690_write_cmos_sensor(0x17,0x65);
+   OV7690_write_cmos_sensor(0x18,0xA4);
+   OV7690_write_cmos_sensor(0x19,0x0A);
+   OV7690_write_cmos_sensor(0x1A,0xF6);
+   OV7690_write_cmos_sensor(0x3E,0x20);
+   OV7690_write_cmos_sensor(0x64,0x11);
+   OV7690_write_cmos_sensor(0x67,0x20);
+   OV7690_write_cmos_sensor(0x81,0x3F);
+   OV7690_write_cmos_sensor(0xCC,0x02);
+   OV7690_write_cmos_sensor(0xCD,0x80);
+   OV7690_write_cmos_sensor(0xCE,0x01);
+   OV7690_write_cmos_sensor(0xCF,0xE0);
+   OV7690_write_cmos_sensor(0xC8,0x02);
+   OV7690_write_cmos_sensor(0xC9,0x80);
+   OV7690_write_cmos_sensor(0xCA,0x01);
+   OV7690_write_cmos_sensor(0xCB,0xE0);
+   OV7690_write_cmos_sensor(0xD0,0x48);
+   OV7690_write_cmos_sensor(0x82,0x03);
+   OV7690_write_cmos_sensor(0x0E,0x00);
+   OV7690_write_cmos_sensor(0x70,0x00);
+   OV7690_write_cmos_sensor(0x71,0x34);
+   OV7690_write_cmos_sensor(0x74,0x28);
+   OV7690_write_cmos_sensor(0x75,0x98);
+   OV7690_write_cmos_sensor(0x76,0x00);
+   OV7690_write_cmos_sensor(0x77,0x64);
+   OV7690_write_cmos_sensor(0x78,0x01);
+   OV7690_write_cmos_sensor(0x79,0xC2);
+   OV7690_write_cmos_sensor(0x7A,0x4E);
+   OV7690_write_cmos_sensor(0x7B,0x1F);
+   OV7690_write_cmos_sensor(0x7C,0x00);
+   OV7690_write_cmos_sensor(0x11,0x00); //5/29 for noise
+   OV7690_write_cmos_sensor(0x20,0x00);
+   OV7690_write_cmos_sensor(0x21,0x23);
+   OV7690_write_cmos_sensor(0x50,0x99);
+   OV7690_write_cmos_sensor(0x51,0x7F);
+   OV7690_write_cmos_sensor(0x4c,0x7D);
+   OV7690_write_cmos_sensor(0x0E,0x00);
+   OV7690_write_cmos_sensor(0x80,0x7F);
+   OV7690_write_cmos_sensor(0x85,0x00);
+   OV7690_write_cmos_sensor(0x86,0x00);
+   OV7690_write_cmos_sensor(0x87,0x00);
+   OV7690_write_cmos_sensor(0x88,0x00);
+   OV7690_write_cmos_sensor(0x89,0x2A);
+   OV7690_write_cmos_sensor(0x8A,0x1d);
+   OV7690_write_cmos_sensor(0x8B,0x1d);
+   OV7690_write_cmos_sensor(0xBB,0xAB);
+   OV7690_write_cmos_sensor(0xBC,0x84);
+   OV7690_write_cmos_sensor(0xBD,0x27);
+   OV7690_write_cmos_sensor(0xBE,0x0E);
+   OV7690_write_cmos_sensor(0xBF,0xB8);
+   OV7690_write_cmos_sensor(0xC0,0xC5);
+   OV7690_write_cmos_sensor(0xC1,0x1E);
+   OV7690_write_cmos_sensor(0xB7,0x04);
+   OV7690_write_cmos_sensor(0xB8,0x09);
+   OV7690_write_cmos_sensor(0xB9,0x00);
+   OV7690_write_cmos_sensor(0xBA,0x18);
+   OV7690_write_cmos_sensor(0x5A,0x1F);
+   OV7690_write_cmos_sensor(0x5B,0x9F);
+   OV7690_write_cmos_sensor(0x5C,0x69);
+   OV7690_write_cmos_sensor(0x5d,0x42);
+   OV7690_write_cmos_sensor(0x24,0x78);
+   OV7690_write_cmos_sensor(0x25,0x68);
+   OV7690_write_cmos_sensor(0x26,0xB3);
+   OV7690_write_cmos_sensor(0xA3,0x0B);
+   OV7690_write_cmos_sensor(0xA4,0x15);
+   OV7690_write_cmos_sensor(0xA5,0x29);
+   OV7690_write_cmos_sensor(0xA6,0x4A);
+   OV7690_write_cmos_sensor(0xA7,0x58);
+   OV7690_write_cmos_sensor(0xA8,0x65);
+   OV7690_write_cmos_sensor(0xA9,0x70);
+   OV7690_write_cmos_sensor(0xAA,0x7B);
+   OV7690_write_cmos_sensor(0xAB,0x85);
+   OV7690_write_cmos_sensor(0xAC,0x8E);
+   OV7690_write_cmos_sensor(0xAD,0xA0);
+   OV7690_write_cmos_sensor(0xAE,0xB0);
+   OV7690_write_cmos_sensor(0xAF,0xCB);
+   OV7690_write_cmos_sensor(0xB0,0xE1);
+   OV7690_write_cmos_sensor(0xB1,0xF1);
+   OV7690_write_cmos_sensor(0xB2,0x14);
+   OV7690_write_cmos_sensor(0xB4,0x00);
+   OV7690_write_cmos_sensor(0xB6,0x04); //
+   OV7690_write_cmos_sensor(0x8E,0x92);
+   OV7690_write_cmos_sensor(0x96,0xFF);
+   OV7690_write_cmos_sensor(0x97,0x00);
+   OV7690_write_cmos_sensor(0x14,0x2B);
 
-  /* test pattern */
-#if defined(__OV7690_TEST_PATTERN__)
-  OV7690_write_cmos_sensor(0x82, 0x0F);
+   OV7690_write_cmos_sensor(0x89,0x2A);
+   OV7690_write_cmos_sensor(0x8A,0x1D);
+   OV7690_write_cmos_sensor(0x8B,0x1D);
+   OV7690_write_cmos_sensor(0x81,0x3F);
+   OV7690_write_cmos_sensor(0xD2,0x02);
+   OV7690_write_cmos_sensor(0xD8,0x31);
+   OV7690_write_cmos_sensor(0xD9,0x31);
+   OV7690_write_cmos_sensor(0xB2,0x20);
+   OV7690_write_cmos_sensor(0xA3,0x02);
+   OV7690_write_cmos_sensor(0xA4,0x16);
+   OV7690_write_cmos_sensor(0xA5,0x2A);
+   OV7690_write_cmos_sensor(0xA6,0x4E);
+   OV7690_write_cmos_sensor(0xA7,0x61);
+   OV7690_write_cmos_sensor(0xA8,0x6F);
+   OV7690_write_cmos_sensor(0xA9,0x7B);
+   OV7690_write_cmos_sensor(0xAA,0x86);
+   OV7690_write_cmos_sensor(0xAB,0x8E);
+   OV7690_write_cmos_sensor(0xAC,0x97);
+   OV7690_write_cmos_sensor(0xAD,0xA4);
+   OV7690_write_cmos_sensor(0xAE,0xAF);
+   OV7690_write_cmos_sensor(0xAF,0xC5);
+   OV7690_write_cmos_sensor(0xB0,0xD7);
+   OV7690_write_cmos_sensor(0xB1,0xE8);
+   OV7690_write_cmos_sensor(0x0E,0x00);
+
+   OV7690_write_cmos_sensor(0xB7,0x08);
+   OV7690_write_cmos_sensor(0x87,0x20);
+   OV7690_write_cmos_sensor(0x89,0x19);
+   OV7690_write_cmos_sensor(0x8A,0x16);
+   OV7690_write_cmos_sensor(0x8B,0x14);
+
+   OV7690_write_cmos_sensor(0x81,0x3F);
+   OV7690_write_cmos_sensor(0xD3,0x10);
+   OV7690_write_cmos_sensor(0xD2,0x06);
+   OV7690_write_cmos_sensor(0xDC,0x09);
+#if 0
+//advance awb
+   OV7690_write_cmos_sensor(0x8C,0x5c);
+   OV7690_write_cmos_sensor(0x8D,0x11);
+   OV7690_write_cmos_sensor(0x8E,0x12);
+   OV7690_write_cmos_sensor(0x8F,0x19);
+   OV7690_write_cmos_sensor(0x90,0x50);
+   OV7690_write_cmos_sensor(0x91,0x20);
+   OV7690_write_cmos_sensor(0x92,0x84);
+   OV7690_write_cmos_sensor(0x93,0x84);
+   OV7690_write_cmos_sensor(0x94,0x0C);
+   OV7690_write_cmos_sensor(0x95,0x0C);
+   OV7690_write_cmos_sensor(0x96,0xFF);
+   OV7690_write_cmos_sensor(0x97,0x00);
+   OV7690_write_cmos_sensor(0x98,0x31);
+   OV7690_write_cmos_sensor(0x99,0x2D);
+   OV7690_write_cmos_sensor(0x9A,0x4B);
+   OV7690_write_cmos_sensor(0x9B,0x3B);
+   OV7690_write_cmos_sensor(0x9C,0xF0);
+   OV7690_write_cmos_sensor(0x9D,0xF0);
+   OV7690_write_cmos_sensor(0x9E,0xF0);
+   OV7690_write_cmos_sensor(0x9F,0xFF); 
+   OV7690_write_cmos_sensor(0xA0,0x5B);
+   OV7690_write_cmos_sensor(0xA1,0x4B);
+   OV7690_write_cmos_sensor(0xA2,0x10); 
 #endif
+   //jashe porting 7692 (e)
 }
 
 /*************************************************************************
@@ -804,16 +805,14 @@ kal_uint32 OV7690Open(void)
 {
 	kal_uint16 sensor_id=0; 
 
-    SENSORDB("OV7690Open_start \n");
+    SENSORDB("OV7690Open_start new\n");
 
 
 	sensor_id=((OV7690_read_cmos_sensor(0x0A)<< 8)|OV7690_read_cmos_sensor(0x0B));
-    SENSORDB("OV7690Open_startzhijie  sensor_id=%x \n",sensor_id);
 
 	if (sensor_id != OV7690_SENSOR_ID) {
-                sensor_id = 0xFFFFFFFF; 
-                SENSORDB("sensor_id error \n");
-        	  return ERROR_SENSOR_CONNECT_FAIL;
+        SENSORDB("sensor_id error \n");
+	    return ERROR_SENSOR_CONNECT_FAIL;
 	}
 	OV7690InitialSetting();
 	
@@ -831,6 +830,20 @@ kal_uint32 OV7690Open(void)
     
 	return ERROR_NONE;
 }   /* OV7690Open  */
+
+UINT32 OV7690GetSensorID(UINT32 *sensorID) 
+{
+kal_uint16 sensor_id = 0;
+sensor_id=((OV7690_read_cmos_sensor(0x0A)<< 8)|OV7690_read_cmos_sensor(0x0B));
+	if (sensor_id != OV7690_SENSOR_ID) {
+        SENSORDB("sensor_id error \n");
+*sensorID = 0xFFFFFFFF;
+	    return ERROR_SENSOR_CONNECT_FAIL;
+	}
+*sensorID = sensor_id;
+		SENSORDB("OV7690Open sensor_id is %x\n", (unsigned int)*sensorID );
+    return ERROR_NONE;
+}
 
 /*************************************************************************
 * FUNCTION
@@ -876,17 +889,17 @@ static kal_uint32 OV7690_Preview(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_windo
 
 {
 	kal_uint16 DummyPixel = 0;
-    SENSORDB("[IN] OV7690_Preview SensorImageMirror:%d\n",sensor_config_data->SensorImageMirror);
+    SENSORDB("[IN] OV7690_Preview \n");
 
 	OV7690_FPS(30);
+	sensor_config_data->SensorImageMirror = IMAGE_NORMAL;
 	OV7690SetMirror(sensor_config_data->SensorImageMirror);
 	OV7690SetClock(OV7690_PREVIEW_CLK);
 	OV7690SetDummy(DummyPixel, 0);
 	OV7690CalFps(); /* need cal new fps */
-	OV7690_write_cmos_sensor(0x14,0x21 );//for banding 50HZ
+	OV7690_write_cmos_sensor(0x14,0x2b );//for banding 50HZ
 	OV7690AeEnable(KAL_TRUE);
 	OV7690AwbEnable(KAL_TRUE);
-        OV7690_write_cmos_sensor(0x13,0xf7 );
 
 
 	image_window->GrabStartX= OV7690_X_START;
@@ -918,9 +931,8 @@ static kal_uint32 OV7690_Capture(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_windo
 						  MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
 
 {
-    SENSORDB("[IN] OV7690_Capture SensorImageMirror:%d\n",sensor_config_data->SensorImageMirror);
-	//OV7690SetMirror(IMAGE_H_MIRROR);
-	OV7690SetMirror(sensor_config_data->SensorImageMirror);
+    SENSORDB("[IN] OV7690_Capture \n");
+
 	image_window->GrabStartX= OV7690_X_START;
 	image_window->GrabStartY= OV7690_Y_START;
 	image_window->ExposureWindowWidth = OV7690_IMAGE_SENSOR_WIDTH;
@@ -936,20 +948,14 @@ void OV7690_NightMode(kal_bool bEnable)
 	
     SENSORDB("[IN]OV7690_NightMode \n");
 	if(bEnable == KAL_FALSE)
-	    {
-            OV7690Sensor.Fps = OV7690_FPS(30);
-           
-            }
+	    OV7690_FPS(30);
 	else if(bEnable == KAL_TRUE)
-            { 
-	    OV7690Sensor.Fps = OV7690_FPS(15);           
-            }
+		OV7690_FPS(15);
 	else
 		printk("Wrong mode setting \n");
 
 	OV7690SetDummy(dummy, 0);
   	OV7690CalFps(); /* need cal new fps */
-	 OV7690_write_cmos_sensor(0x15,0xa4);//94
 }
 
 kal_uint32 OV7690GetResolution(MSDK_SENSOR_RESOLUTION_INFO_STRUCT *pSensorResolution)
@@ -957,8 +963,8 @@ kal_uint32 OV7690GetResolution(MSDK_SENSOR_RESOLUTION_INFO_STRUCT *pSensorResolu
 
 	pSensorResolution->SensorFullWidth=OV7690_IMAGE_SENSOR_WIDTH_DRV;
 	pSensorResolution->SensorFullHeight=OV7690_IMAGE_SENSOR_HEIGHT_DRV;
-    pSensorResolution->SensorPreviewWidth=OV7690_IMAGE_SENSOR_WIDTH_DRV-2;
-	pSensorResolution->SensorPreviewHeight=OV7690_IMAGE_SENSOR_HEIGHT_DRV-2;
+    pSensorResolution->SensorPreviewWidth=OV7690_IMAGE_SENSOR_WIDTH_DRV - 2;
+	pSensorResolution->SensorPreviewHeight=OV7690_IMAGE_SENSOR_HEIGHT_DRV - 2;
 	return ERROR_NONE;
 }	/* OV7690GetResolution() */
 
@@ -972,9 +978,16 @@ kal_uint32 OV7690GetInfo(MSDK_SCENARIO_ID_ENUM ScenarioId,
 	pSensorInfo->SensorClockFallingPolarity=SENSOR_CLOCK_POLARITY_LOW;
 	pSensorInfo->SensorHsyncPolarity = SENSOR_CLOCK_POLARITY_LOW;
 	pSensorInfo->SensorVsyncPolarity = SENSOR_CLOCK_POLARITY_LOW;
+#if 1
+    /* Workaround for the short green screen when enabling this camera. */
+    SENSORDB("[OV7692] Applying the workaround for the short green screen\n");
+    pSensorInfo->PreviewDelayFrame = 30;
+    pSensorInfo->VideoDelayFrame = 30;
+    SENSORDB("[OV7692]      PreviewDelayFram = %d\n", pSensorInfo->PreviewDelayFrame);
+    SENSORDB("[OV7692]      VideoDelayFram = %d\n", pSensorInfo->VideoDelayFrame);
+#endif
 
-	 pSensorInfo->CaptureDelayFrame = 4; 
-  pSensorInfo->PreviewDelayFrame = 2;  
+	
 	pSensorInfo->SensorMasterClockSwitch = 0; 
       pSensorInfo->SensorDrivingCurrent = ISP_DRIVING_2MA;   		
 
@@ -1053,9 +1066,9 @@ kal_uint32 OV7690Control(MSDK_SCENARIO_ID_ENUM ScenarioId, MSDK_SENSOR_EXPOSURE_
 
 static BOOL OV7690_set_param_wb(UINT16 para)
 {
-	kal_uint8  i;
-
-	const static kal_uint8 AwbGain[5][2]=
+    kal_uint8  i = 5;
+    kal_uint8  temp_reg;
+    const static kal_uint8 AwbGain[5][2]=
     { /* R gain, B gain. base: 0x40 */
      {0x56,0x5c}, /* cloud */
      {0x56,0x58}, /* daylight */
@@ -1063,65 +1076,61 @@ static BOOL OV7690_set_param_wb(UINT16 para)
      {0x60,0x58}, /* FLUORESCENT */
      {0x40,0xA0}, /* TUNGSTEN */
     };
-	if (OV7690Sensor.Wb == para)
+   if (OV7690Sensor.Wb == para)
     {
       return TRUE;
     }
     OV7690Sensor.Wb = para;
-
+    temp_reg=OV7690_read_cmos_sensor(0x13);
 	switch (para)
 	{
 		case AWB_MODE_AUTO:
-			OV7690AwbEnable(KAL_TRUE);	
-			OV7690_write_cmos_sensor(0x8c,0x52);//52
-			break;
-		case AWB_MODE_INCANDESCENT: //office
-			i = 1;
-		OV7690AwbEnable(KAL_FALSE);
-			OV7690_write_cmos_sensor(0x01,0x56);
-			OV7690_write_cmos_sensor(0x02,0x58);
-			OV7690_write_cmos_sensor(0x03,0x40);
-			OV7690_write_cmos_sensor(0x8c,0x56);
-			break;
-		case AWB_MODE_TUNGSTEN: //home 
-			i = 0;
-		OV7690AwbEnable(KAL_FALSE);
-			OV7690_write_cmos_sensor(0x01,0x56);
-			OV7690_write_cmos_sensor(0x02,0x5c);
-			OV7690_write_cmos_sensor(0x03,0x40);			
-			OV7690_write_cmos_sensor(0x8c,0x56);
-			break;
-		case AWB_MODE_CLOUDY_DAYLIGHT: //cloudy
-			i = 2;			
-		OV7690AwbEnable(KAL_FALSE);
-			OV7690_write_cmos_sensor(0x01,0x88);
-			OV7690_write_cmos_sensor(0x02,0xa3);
-			OV7690_write_cmos_sensor(0x03,0x80);			
-			OV7690_write_cmos_sensor(0x8c,0x56);
-			break;
-		case AWB_MODE_FLUORESCENT: 
-			i = 4;
-		OV7690AwbEnable(KAL_FALSE);
-			OV7690_write_cmos_sensor(0x01,0x57);
-			OV7690_write_cmos_sensor(0x02,0x56);
-			OV7690_write_cmos_sensor(0x03,0x40);			
-			OV7690_write_cmos_sensor(0x8c,0x56);
+            OV7690_write_cmos_sensor(0x13,temp_reg|0x2);
+			//OV7690AwbEnable(KAL_TRUE);	
 			break;
 		case AWB_MODE_DAYLIGHT: //sunny
-			i = 3;
-			OV7690AwbEnable(KAL_FALSE);
-			OV7690_write_cmos_sensor(0x01,0x50);
-			OV7690_write_cmos_sensor(0x02,0x52);
-			OV7690_write_cmos_sensor(0x03,0x40);			
-			OV7690_write_cmos_sensor(0x8c,0x56);
+			OV7690_write_cmos_sensor(0x13,temp_reg&~0x2);  // Disable AWB 
+			OV7690_write_cmos_sensor(0x01, 0x8A); 
+			OV7690_write_cmos_sensor(0x02, 0xA7); 
+			OV7690_write_cmos_sensor(0x03, 0x80);
+			//i = 1;
+			break;
+		case AWB_MODE_CLOUDY_DAYLIGHT: //cloudy
+			OV7690_write_cmos_sensor(0x13,temp_reg&~0x2);  // Disable AWB 
+			OV7690_write_cmos_sensor(0x01, 0x7A); 
+			OV7690_write_cmos_sensor(0x02, 0xA7); 
+			OV7690_write_cmos_sensor(0x03, 0x80);
+			//i = 0;
+			break;
+		case AWB_MODE_INCANDESCENT: //office 
+			OV7690_write_cmos_sensor(0x13,temp_reg&~0x2);  // Disable AWB 
+			OV7690_write_cmos_sensor(0x01, 0xB7); 
+			OV7690_write_cmos_sensor(0x02, 0x6A); 
+			OV7690_write_cmos_sensor(0x03, 0x80);
+			//i = 2;			
+			break;
+		case AWB_MODE_TUNGSTEN: //home 
+			OV7690_write_cmos_sensor(0x13,temp_reg&~0x2);  // Disable AWB 
+			OV7690_write_cmos_sensor(0x01, 0xC6); 
+			OV7690_write_cmos_sensor(0x02, 0x70); 
+			OV7690_write_cmos_sensor(0x03, 0x80);
+			//i = 4;
+			break;
+		case AWB_MODE_FLUORESCENT: 
+			OV7690_write_cmos_sensor(0x13,temp_reg&~0x2);  // Disable AWB 
+			OV7690_write_cmos_sensor(0x01, 0x87); 
+			OV7690_write_cmos_sensor(0x02, 0x8E); 
+			OV7690_write_cmos_sensor(0x03, 0x80);
+			//i = 3;
 			break; 
 		default:
 			return FALSE;
 	}
-	 //OV7690AwbEnable(KAL_FALSE);
-   //OV7690_write_cmos_sensor(0x02, AwbGain[i][0]); /* AWb R gain */
-   //OV7690_write_cmos_sensor(0x01, AwbGain[i][1]); /* AWb B gain */
-
+	//if (i < 5) {
+		//OV7690AwbEnable(KAL_FALSE);
+   		//OV7690_write_cmos_sensor(0x02, AwbGain[i][0]); /* AWb R gain */
+   		//OV7690_write_cmos_sensor(0x01, AwbGain[i][1]); /* AWb B gain */
+	//}
 	return TRUE;
 } /* OV7690_set_param_wb */
 
@@ -1131,12 +1140,12 @@ static BOOL OV7690_set_param_effect(UINT16 para)
 	
 	static const kal_uint8 Data[6][3]=
     {
-      {0x06,0x80,0x80}, /* NORMAL */
-      {0x1e,0x80,0x80}, //{0x26,0x80,0x80}, /* GRAYSCALE */
-      {0x1e,0x40,0xA0}, /* SEPIA */
-      {0x1e,0x60,0x60}, /* SEPIAGREEN */
-      {0x1e,0xA0,0x40}, /* SEPIABLUE */
-      {0x46,0x80,0x80}, /* COLORINV */
+      {0x00,0x80,0x80}, /* NORMAL */
+      {0x18,0x80,0x80}, /* GRAYSCALE */
+      {0x18,0x40,0xA0}, /* SEPIA */
+      {0x18,0x60,0x60}, /* SEPIAGREEN */
+      {0x18,0xA0,0x40}, /* SEPIABLUE */
+      {0x40,0x80,0x80}, /* COLORINV */
     };
     kal_uint8 i;
 	BOOL ret = TRUE;
@@ -1187,10 +1196,10 @@ static BOOL OV7690_set_param_banding(UINT16 para)
 	switch (para)
 	{
 		case AE_FLICKER_MODE_50HZ:
-			OV7690_write_cmos_sensor(0x14, 0x21);
+			OV7690_write_cmos_sensor(0x14, 0x2b);
 			break;
 		case AE_FLICKER_MODE_60HZ:
-			OV7690_write_cmos_sensor(0x14, 0x20);
+			OV7690_write_cmos_sensor(0x14, 0x2a);
 			break;
 		default:
 			return FALSE;
@@ -1224,37 +1233,52 @@ static BOOL OV7690_set_param_exposure(UINT16 para)
 	switch (para)
 	{
 		case AE_EV_COMP_00:	// Disable EV compenate
-			i = 4;	
+			//i = 4;
+			OV7690_write_cmos_sensor(0x24, 0x78); 
+			OV7690_write_cmos_sensor(0x25, 0x68); 
+			OV7690_write_cmos_sensor(0x26, 0xB3);	
 			break;
 		case AE_EV_COMP_05:// EV compensate 0.5
-			i = 5;
-			break;
-		case AE_EV_COMP_10:// EV compensate 1.0
-			i = 6;
-			break;
-		case AE_EV_COMP_15:// EV compensate 1.5
-			i = 7;
-			break;
-		case AE_EV_COMP_20:// EV compensate 2.0
-			i = 8;
-			break;
-		case AE_EV_COMP_n05:// EV compensate -0.5
 			i = 3;
 			break;
-		case AE_EV_COMP_n10:// EV compensate -1.0
-			i = 2;
+		case AE_EV_COMP_10:// EV compensate 1.0
+			//i = 2;
+			OV7690_write_cmos_sensor(0x24, 0x88); 
+			OV7690_write_cmos_sensor(0x25, 0x78); 
+			OV7690_write_cmos_sensor(0x26, 0xC4);
 			break;
-		case AE_EV_COMP_n15:// EV compensate -1.5
+		case AE_EV_COMP_15:// EV compensate 1.5
 			i = 1;
 			break;
+		case AE_EV_COMP_20:// EV compensate 2.0
+			OV7690_write_cmos_sensor(0x24, 0x98); 
+			OV7690_write_cmos_sensor(0x25, 0x88); 
+			OV7690_write_cmos_sensor(0x26, 0xD5);
+			//i = 0;
+			break;
+		case AE_EV_COMP_n05:// EV compensate -0.5
+			i = 5;
+			break;
+		case AE_EV_COMP_n10:// EV compensate -1.0
+			OV7690_write_cmos_sensor(0x24, 0x68); 
+			OV7690_write_cmos_sensor(0x25, 0x58); 
+			OV7690_write_cmos_sensor(0x26, 0xA2);
+			//i = 6;
+			break;
+		case AE_EV_COMP_n15:// EV compensate -1.5
+			i = 7;
+			break;
 		case AE_EV_COMP_n20:// EV compensate -2.0
-			i = 0;
+			OV7690_write_cmos_sensor(0x24, 0x58); 
+			OV7690_write_cmos_sensor(0x25, 0x48); 
+			OV7690_write_cmos_sensor(0x26, 0x91);
+			//i = 8;
 			break;
 		default:
 			return FALSE;
 		}
-	OV7690_write_cmos_sensor(0xDC, Data[i][0]); /* SGNSET */
-   OV7690_write_cmos_sensor(0xD3, Data[i][1]); /* YBright */
+	//OV7690_write_cmos_sensor(0xDC, Data[i][0]); /* SGNSET */
+   //OV7690_write_cmos_sensor(0xD3, Data[i][1]); /* YBright */
 
 	return TRUE;
 } /* OV7690_set_param_exposure */
@@ -1263,7 +1287,6 @@ static kal_uint32 OV7690_YUVSensorSetting(FEATURE_ID iCmd, UINT16 iPara)
 {
 	
     SENSORDB("[IN] OV7690_YUVSensorSetting iCmd =%d, iPara =%d\n",iCmd, iPara);
-	
 	switch (iCmd) 
 	{
 		case FID_SCENE_MODE:
@@ -1391,6 +1414,7 @@ static void OV7690_get_period(kal_uint16 *pixel_number, kal_uint16 *line_number)
 kal_uint32 OV7690FeatureControl(MSDK_SENSOR_FEATURE_ENUM id, kal_uint8 *para, kal_uint32 *len)
 {
 	UINT32 *pFeatureData32=(UINT32 *) para;
+	UINT32 *pFeatureReturnPara32=(UINT32 *) para;
 	if((id!=3000)&&(id!=3004)&&(id!=3006)){
 	    //CAMERA_CONTROL_FLOW(id,id);
 	}
@@ -1459,6 +1483,10 @@ kal_uint32 OV7690FeatureControl(MSDK_SENSOR_FEATURE_ENUM id, kal_uint8 *para, ka
 			SENSORDB("[IN]SENSOR_FEATURE_SET_VIDEO_MODE \n");
 			OV7690_YUVSetVideoMode(*para);
 			break; 		
+
+		case SENSOR_FEATURE_CHECK_SENSOR_ID:
+            OV7690GetSensorID(pFeatureReturnPara32); 
+			break;	
 		default:
 			break;
 	}
@@ -1484,3 +1512,6 @@ UINT32 OV7690_YUV_SensorInit(PSENSOR_FUNCTION_STRUCT *pfFunc)
 
 	return ERROR_NONE;
 }	/* SensorInit() */
+
+
+

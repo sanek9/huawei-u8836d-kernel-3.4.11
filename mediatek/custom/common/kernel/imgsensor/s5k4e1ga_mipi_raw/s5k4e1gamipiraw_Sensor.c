@@ -1508,7 +1508,7 @@ UINT32 S5K4E1GAGetInfo(MSDK_SCENARIO_ID_ENUM ScenarioId,
             break;
         case MSDK_SCENARIO_ID_CAMERA_CAPTURE_JPEG:
         case MSDK_SCENARIO_ID_CAMERA_CAPTURE_MEM:
-		#if defined(MT6575) || defined(MT6577)
+		#if defined(MT6575)
 			case MSDK_SCENARIO_ID_CAMERA_ZSD:
 		#endif
             pSensorInfo->SensorClockFreq=24;
