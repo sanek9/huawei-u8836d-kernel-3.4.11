@@ -246,6 +246,9 @@ static const LCM_UTIL_FUNCS lcm_utils =
 	/** FIXME: GPIO mode should not be configured in lcm driver
 	  REMOVE ME after GPIO customization is done    
 	 */
+//zhuoshineng add
+	.dsi_set_cmdq_dcs	= DSI_set_cmdq_dcs,
+//zhuoshineng end
 #ifndef CONFIG_MT6577_FPGA
 	.set_gpio_out       = mt_set_gpio_out,
 	.set_gpio_mode        = mt_set_gpio_mode,
@@ -349,6 +352,8 @@ const LCM_DRIVER *disp_drv_get_lcm_driver(const char *lcm_name)
 			}
 			else 
 			{
+				isLCMFound =TRUE;
+				lcm_drv = lcm;
 				if(LCM_TYPE_DSI == lcm_params->type){
 					init_dsi(FALSE);
 				}
