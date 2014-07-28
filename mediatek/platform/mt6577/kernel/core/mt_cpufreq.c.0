@@ -176,7 +176,7 @@ static bool mtk_cpufreq_debug = false;
 static bool mtk_cpufreq_ready = false;
 static bool mtk_cpufreq_pause = false;
 
-static bool cpufreq_usb_limit = false;//true;
+static bool cpufreq_usb_limit = true;
 
 /*****************************************
 * Turbo mode threshold
@@ -577,14 +577,14 @@ static int mtk_cpufreq_keep_max_freq(unsigned int freq_old, unsigned int freq_ne
         return 1;
 
     /* check if system is going to ramp down */
-/*    if (freq_new < freq_old)
+    if (freq_new < freq_old)
         g_ramp_down_count++;
     else
         g_ramp_down_count = 0;
 
     if (g_ramp_down_count < RAMP_DOWN_TIMES)
         return 1;
-*/
+
     return 0;
 }
 
@@ -715,10 +715,10 @@ static int mtk_cpufreq_target(struct cpufreq_policy *policy, unsigned int target
         freqs.new = policy->max;
     }
 
-    //if (g_is_sreen_off)
-    //{
-    //    freqs.new = DVFS_F7; //F2
-    //}
+    if (g_is_sreen_off)
+    {
+        freqs.new = DVFS_F2;
+    }
 
     if (freqs.new > g_limited_freq)
     {
@@ -820,8 +820,7 @@ static int mtk_cpufreq_init(struct cpufreq_policy *policy)
     /*******************************************************
     * 1 us, assumed, will be overwrited by min_sampling_rate
     ********************************************************/
-    //policy->cpuinfo.transition_latency = 1000;
-    policy->cpuinfo.transition_latency = 50000;
+    policy->cpuinfo.transition_latency = 1000;
 
     /*********************************************
     * set default policy and cpuinfo, unit : Khz
@@ -936,8 +935,8 @@ void mtk_cpufreq_early_suspend(struct early_suspend *h)
     if (get_chip_ver() >= CHIP_6575_E2 && get_chip_ver() < CHIP_6577_E1)
         g_limited_min_freq = DVFS_F7;
 
-    //cpufreq_state_set(0);
-    //cpufreq_driver_target(policy, DVFS_F6, CPUFREQ_RELATION_L);
+    cpufreq_state_set(0);
+    cpufreq_driver_target(policy, DVFS_F2, CPUFREQ_RELATION_L);
 
     mt6329_read_byte(0x47, &g_dvs_volt);
 
@@ -971,7 +970,7 @@ void mtk_cpufreq_late_resume(struct early_suspend *h)
     if (get_chip_ver() >= CHIP_6575_E2 && get_chip_ver() < CHIP_6577_E1)
         g_limited_min_freq = DVFS_F8;
 
-    //cpufreq_state_set(1);
+    cpufreq_state_set(1);
 
     #endif
 
