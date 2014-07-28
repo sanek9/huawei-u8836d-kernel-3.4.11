@@ -173,11 +173,11 @@ if [ $? -ne 0 ]; then exit 1; fi
 
 mkimg="${MTK_ROOT_BUILD}/tools/mkimage"
 if [ "${KBUILD_OUTPUT_SUPPORT}" == "yes" ]; then
-  kernel_img="arch/arm/boot/Image"
-  kernel_zimg="arch/arm/boot/zImage"
+  kernel_img="${outdir}/arch/arm/boot/Image"
+  kernel_zimg="${outdir}/arch/arm/boot/zImage"
 else
-  kernel_img="arch/arm/boot/Image"
-  kernel_zimg="arch/arm/boot/zImage"
+  kernel_img="${curdir}/arch/arm/boot/Image"
+  kernel_zimg="${curdir}/arch/arm/boot/zImage"
 fi
 
 if [ ! -x ${mkimg} ]; then chmod a+x ${mkimg}; fi
